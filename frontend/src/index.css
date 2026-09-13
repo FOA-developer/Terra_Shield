@@ -1,1 +1,48 @@
 @import "tailwindcss";
+
+@theme {
+  --font-sans: 'IBM Plex Sans', Helvetica, Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --color-forest-950: #07231a;
+  --color-forest-900: #0b1f17;
+  --color-forest-800: #0f2d21;
+  --color-forest-700: #153a2b;
+  --color-forest-600: #1f5138;
+  --color-forest-400: #3fb27f;
+  --color-forest-200: #a8c4b7;
+  --color-forest-100: #c8d6cf;
+
+  --color-risk-high: #dc2626;
+  --color-risk-high-soft: #fee2e2;
+  --color-risk-medium: #d97706;
+  --color-risk-medium-soft: #fef3c7;
+  --color-risk-low: #16a34a;
+  --color-risk-low-soft: #dcfce7;
+}
+
+@keyframes ts-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: #f3f4f6;
+  color: #111827;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-forest-600);
+  color: #fff;
+}
+
+.animate-ts-fade {
+  animation: ts-fade 0.35s ease both;
+}
