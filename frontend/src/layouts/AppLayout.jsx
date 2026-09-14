@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import Logo from '../components/Logo'
 import { NAV_ITEMS, TAB_ITEMS, activeKeyForPath } from '../nav'
+import { useAuth } from '../auth/AuthContext'
 
 function navButtonClasses(active, mobile) {
   const base = 'flex items-center gap-2.5 rounded-lg border-none text-left cursor-pointer'
@@ -41,6 +42,16 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const activeTab = activeKeyForPath(location.pathname)
+  const { isAuthenticated, logout } = useAuth()
+
+  // The token lives in memory only, so a refresh drops it — send unauthenticated
+  // visitors to the login page.
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+
+  const signOut = () => {
+    logout()
+    navigate('/login')
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -120,7 +131,7 @@ export default function AppLayout() {
               <div className="flex-1" />
               <button
                 type="button"
-                onClick={() => { setDrawerOpen(false); navigate('/') }}
+                onClick={() => { setDrawerOpen(false); signOut() }}
                 className="rounded-lg border border-forest-600 bg-transparent px-4 py-4 text-left text-[15px] text-forest-100"
               >
                 Sign out
