@@ -3,39 +3,61 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useData } from '../data/DataContext'
 import RiskBadge, { RiskDot } from '../components/RiskBadge'
 import PageHeader from '../components/PageHeader'
+import DataState from '../components/DataState'
 
 const AGOS = ['10 min ago', '25 min ago', '1 hr ago', '2 hrs ago', '4 hrs ago']
 
 export default function Dashboard() {
-  const { segments, alerts } = useData()
+  const { dashboard, alerts, bySegId, pipes, loading, coldStart, error, reload } = useData()
   const navigate = useNavigate()
 
-  const { total, high, med, low, hp, mp, statCards, topRisk, recentAlerts } = useMemo(() => {
-    const high = segments.filter((s) => s.level === 'High')
-    const med = segments.filter((s) => s.level === 'Medium')
-    const low = segments.filter((s) => s.level === 'Low')
-    const total = segments.length
-    const pctOf = (n) => ((n / total) * 100).toFixed(1) + '% of total'
-    const hp = (high.length / total) * 100
-    const mp = (med.length / total) * 100
+  const { total, highCount, medCount, lowCount, hp, mp, statCards, topRisk, recentAlerts } = useMemo(() => {
+    const breakdown = Object.fromEntries((dashboard?.risk_level_breakdown || []).map((b) => [b.risk_level, b.count]))
+    const highCount = breakdown.High || 0
+    const medCount = breakdown.Medium || 0
+    const lowCount = breakdown.Low || 0
+    const total = dashboard?.segment_count ?? (highCount + medCount + lowCount)
+    const pctOf = (n) => (total ? ((n / total) * 100).toFixed(1) : '0.0') + '% of total'
+    const hp = total ? (highCount / total) * 100 : 0
+    const mp = total ? (medCount / total) * 100 : 0
 
     const statCards = [
-      { label: 'Total Segments', value: String(total), sub: 'Across 5 pipelines', icon: '≡', color: '#1f5138', bg: '#ecfdf5' },
-      { label: 'High Risk', value: String(high.length), sub: pctOf(high.length), icon: '△', color: '#dc2626', bg: '#fee2e2' },
-      { label: 'Medium Risk', value: String(med.length), sub: pctOf(med.length), icon: '◐', color: '#d97706', bg: '#fef3c7' },
-      { label: 'Low Risk', value: String(low.length), sub: pctOf(low.length), icon: '✓', color: '#16a34a', bg: '#dcfce7' },
+      { label: 'Total Segments', value: String(total), sub: `Across ${dashboard?.pipeline_count ?? pipes.length} pipelines`, icon: '≡', color: '#1f5138', bg: '#ecfdf5' },
+      { label: 'High Risk', value: String(highCount), sub: pctOf(highCount), icon: '△', color: '#dc2626', bg: '#fee2e2' },
+      { label: 'Medium Risk', value: String(medCount), sub: pctOf(medCount), icon: '◐', color: '#d97706', bg: '#fef3c7' },
+      { label: 'Low Risk', value: String(lowCount), sub: pctOf(lowCount), icon: '✓', color: '#16a34a', bg: '#dcfce7' },
     ]
 
-    const topRisk = high.slice().sort((a, b) => b.score - a.score).slice(0, 5)
+    // Top high-risk segments from the dashboard's latest assessments; pull the
+    // pipeline name from the segment list where available.
+    const topRisk = (dashboard?.latest_assessments || [])
+      .slice()
+      .sort((a, b) => b.risk_score - a.risk_score)
+      .slice(0, 5)
+      .map((a) => ({
+        id: a.segment_id,
+        score: a.risk_score,
+        level: a.risk_level,
+        pipeline: bySegId.get(a.segment_id)?.pipeline || '—',
+      }))
+
     const recentAlerts = alerts.slice(0, 4)
-    return { total, high, med, low, hp, mp, statCards, topRisk, recentAlerts }
-  }, [segments, alerts])
+    return { total, highCount, medCount, lowCount, hp, mp, statCards, topRisk, recentAlerts }
+  }, [dashboard, alerts, bySegId, pipes])
+
+  if ((loading && !dashboard) || error) {
+    return (
+      <div className="p-4 pb-7 lg:px-7.5 lg:py-7">
+        <DataState loading={loading} coldStart={coldStart} error={error} onRetry={reload} />
+      </div>
+    )
+  }
 
   const donut = `conic-gradient(#dc2626 0 ${hp}%,#d97706 ${hp}% ${hp + mp}%,#16a34a ${hp + mp}% 100%)`
   const legend = [
-    { label: 'High Risk', level: 'High', value: `${high.length} (${hp.toFixed(1)}%)` },
-    { label: 'Medium Risk', level: 'Medium', value: `${med.length} (${mp.toFixed(1)}%)` },
-    { label: 'Low Risk', level: 'Low', value: `${low.length} (${(100 - hp - mp).toFixed(1)}%)` },
+    { label: 'High Risk', level: 'High', value: `${highCount} (${hp.toFixed(1)}%)` },
+    { label: 'Medium Risk', level: 'Medium', value: `${medCount} (${mp.toFixed(1)}%)` },
+    { label: 'Low Risk', level: 'Low', value: `${lowCount} (${(100 - hp - mp).toFixed(1)}%)` },
   ]
 
   return (
@@ -135,7 +157,7 @@ export default function Dashboard() {
                   <div className="font-mono text-[13px] font-semibold text-gray-900">{t.id}</div>
                   <div className="mt-0.5 text-xs text-gray-500">{t.pipeline}</div>
                 </div>
-                <RiskBadge level="High">{t.score}</RiskBadge>
+                <RiskBadge level={t.level}>{t.score}</RiskBadge>
               </button>
             ))}
           </div>
