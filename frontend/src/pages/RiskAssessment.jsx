@@ -24,9 +24,12 @@ export default function RiskAssessment() {
   const [loading, setLoading] = useState(true)
   const [coldStart, setColdStart] = useState(false)
   const [error, setError] = useState(null)
+  const [attempt, setAttempt] = useState(0)
 
   const segmentCode = seg?.code || seg?.id
 
+  // Standard data-fetch-in-effect; the synchronous setState is intentional.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!segmentCode) return
     let alive = true
@@ -37,7 +40,8 @@ export default function RiskAssessment() {
       .catch((e) => { if (alive) setError(e) })
       .finally(() => { if (alive) { setLoading(false); setColdStart(false) } })
     return () => { alive = false }
-  }, [segmentCode])
+  }, [segmentCode, attempt])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Segment list still loading, or segment not found.
   if (!seg) {
@@ -63,7 +67,7 @@ export default function RiskAssessment() {
         <Link to={`/segments/${seg.id}`} className="text-sm font-semibold">‹ Back to segment</Link>
         <div className="mt-3 text-2xl font-bold tracking-tight text-forest-800 lg:text-[31px]">Risk Assessment</div>
         <div className="mt-4">
-          <DataState loading={loading} coldStart={coldStart} error={error} onRetry={() => setResult(null) || setError(null) || setLoading(true)} />
+          <DataState loading={loading} coldStart={coldStart} error={error} onRetry={() => setAttempt((n) => n + 1)} />
         </div>
       </div>
     )
