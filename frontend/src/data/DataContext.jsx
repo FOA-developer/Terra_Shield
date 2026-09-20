@@ -24,12 +24,16 @@ function mapSegment(listItem, detail) {
     pipeline: detail?.pipeline?.name || listItem.pipeline_name || '—',
     score,
     level,
+    assessed: !!latest,        // false = no risk assessment yet (render neutral)
     status: detail?.pipeline?.status || '—',
     location: detail?.pipeline?.location || '—',
     latitude: listItem.latitude,
     longitude: listItem.longitude,
     explanation: latest?.explanation || '',
     recommendation: latest?.recommendation || '',
+    // FUTURE: detail.incidents is a per-segment incidents array from the API.
+    // Not wired into the Incidents page yet (still on mock data) — revisit
+    // after the deadline to replace or augment the mock incidents feed.
     // Fields with no backend source yet.
     last: '—',
     lengthKm: '—',
