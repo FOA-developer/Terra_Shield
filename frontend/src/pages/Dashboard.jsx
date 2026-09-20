@@ -98,7 +98,7 @@ export default function Dashboard() {
   return (
     <div className="p-4 pb-7 lg:px-7.5 lg:py-7">
       <PageHeader
-        title="Welcome back, Emeka"
+        title="Welcome back, Engineer"
         subtitle="Here's what's happening across your pipeline network today."
         right={<LiveClock />}
       />
