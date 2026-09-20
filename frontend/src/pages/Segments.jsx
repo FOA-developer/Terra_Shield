@@ -4,12 +4,14 @@ import { riskColor } from '../lib/risk'
 import RiskBadge from '../components/RiskBadge'
 import { useSegmentFilters } from '../hooks/useSegmentFilters'
 import { useData } from '../data/DataContext'
+import DataState from '../components/DataState'
+import Select from '../components/Select'
 
 const HEADERS = ['SEGMENT ID', 'PIPELINE', 'RISK', 'SCORE', 'STATUS', 'LAST INSPECTED']
 
 export default function Segments() {
   const navigate = useNavigate()
-  const { threshold } = useData()
+  const { threshold, loading, coldStart, error, reload, segments } = useData()
   const { q, setQ, pipe, setPipe, level, setLevel, pipeOptions, levelOptions, filtered, total } = useSegmentFilters()
   const [page, setPage] = useState(1)
 
@@ -19,6 +21,17 @@ export default function Segments() {
   const rows = filtered.slice((currentPage - 1) * per, currentPage * per)
 
   const open = (id) => navigate(`/segments/${id}`)
+
+  if ((loading && !segments.length) || error) {
+    return (
+      <div className="p-4 pb-7 lg:px-7.5 lg:py-7">
+        <div className="text-2xl font-bold tracking-tight text-forest-800 lg:text-[31px]">Segments</div>
+        <div className="mt-4">
+          <DataState loading={loading} coldStart={coldStart} error={error} onRetry={reload} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-4 pb-7 lg:px-7.5 lg:py-7">
@@ -36,12 +49,12 @@ export default function Segments() {
           placeholder="Search segment ID…"
           className="h-12 rounded-lg border border-gray-300 bg-white px-3.5 text-sm text-gray-900 outline-none focus:border-forest-600"
         />
-        <select value={pipe} onChange={(e) => { setPipe(e.target.value); setPage(1) }} className="h-12 rounded-lg border border-gray-300 bg-white px-2.5 text-sm text-gray-900">
+        <Select value={pipe} onChange={(e) => { setPipe(e.target.value); setPage(1) }} className="h-12">
           {pipeOptions.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <select value={level} onChange={(e) => { setLevel(e.target.value); setPage(1) }} className="h-12 rounded-lg border border-gray-300 bg-white px-2.5 text-sm text-gray-900">
+        </Select>
+        <Select value={level} onChange={(e) => { setLevel(e.target.value); setPage(1) }} className="h-12">
           {levelOptions.map((l) => <option key={l} value={l}>{l}</option>)}
-        </select>
+        </Select>
       </div>
 
       {/* Desktop table */}
