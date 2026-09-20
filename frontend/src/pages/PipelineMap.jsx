@@ -52,14 +52,26 @@ function FocusController({ focus, segmentsById, markerRefs }) {
   return null
 }
 
-// Leaflet renders blank tiles if the container was display:none when created
-// (mobile tab toggle). Recompute size whenever the map becomes visible.
+// Leaflet mis-measures its container if it initializes while hidden
+// (display:none behind the mobile "Map" tab), which lays tiles out wrong.
+// A ResizeObserver on the map container re-measures on any size change —
+// including 0 → real dimensions when the tab becomes visible. The tab-switch
+// timeout is a belt-and-suspenders fallback for browsers that settle late.
 function ResizeFix({ trigger }) {
   const map = useMap()
+
   useEffect(() => {
-    const t = setTimeout(() => map.invalidateSize(), 0)
+    const container = map.getContainer()
+    const ro = new ResizeObserver(() => map.invalidateSize())
+    ro.observe(container)
+    return () => ro.disconnect()
+  }, [map])
+
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 150)
     return () => clearTimeout(t)
   }, [trigger, map])
+
   return null
 }
 
@@ -173,14 +185,14 @@ export default function PipelineMap() {
         </div>
 
         {/* Map panel */}
-        <div className={`${mapTab === 'map' ? 'block' : 'hidden'} overflow-hidden rounded-xl border border-gray-200 lg:block`}>
+        <div className={`${mapTab === 'map' ? 'block' : 'hidden'} isolate overflow-hidden rounded-xl border border-gray-200 lg:block`}>
           {plotted.length === 0 ? (
             <div className="flex h-[70vh] min-h-[420px] items-center justify-center bg-gray-50 p-8 text-center text-sm text-gray-500 lg:h-[640px]">
               No segments have coordinates to plot yet.
             </div>
           ) : (
             <MapContainer
-              className="h-[70vh] min-h-[420px] w-full lg:h-[640px]"
+              className="h-[70vh] min-h-[420px] w-full overflow-hidden rounded-xl lg:h-[640px]"
               center={points[0]}
               zoom={13}
               scrollWheelZoom
