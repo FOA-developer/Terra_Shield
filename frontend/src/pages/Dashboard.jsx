@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useData } from '../data/DataContext'
 import RiskBadge, { RiskDot } from '../components/RiskBadge'
@@ -6,6 +6,41 @@ import PageHeader from '../components/PageHeader'
 import DataState from '../components/DataState'
 
 const AGOS = ['10 min ago', '25 min ago', '1 hr ago', '2 hrs ago', '4 hrs ago']
+
+// Format a Date in West Africa Time (UTC+1) as e.g. "Sat, 12 Sep 2026 · 07:42 WAT".
+// Formatting via the Africa/Lagos timezone is robust regardless of the viewer's
+// machine timezone; Lagos has no DST, so the WAT label is always correct.
+function formatWAT(date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Africa/Lagos',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const p = (t) => parts.find((x) => x.type === t)?.value
+  return `${p('weekday')}, ${p('day')} ${p('month')} ${p('year')} · ${p('hour')}:${p('minute')} WAT`
+}
+
+// Live-ticking clock for the dashboard header. Updates every second and clears
+// its interval on unmount so it doesn't leak.
+function LiveClock() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <div className="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 font-mono text-[13px] text-gray-700">
+      <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-600" />
+      {formatWAT(now)}
+    </div>
+  )
+}
 
 export default function Dashboard() {
   const { dashboard, alerts, bySegId, pipes, loading, coldStart, error, reload } = useData()
@@ -65,12 +100,7 @@ export default function Dashboard() {
       <PageHeader
         title="Welcome back, Emeka"
         subtitle="Here's what's happening across your pipeline network today."
-        right={
-          <div className="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 font-mono text-[13px] text-gray-700">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-600" />
-            Sat, 12 Sep 2026 · 07:42 WAT
-          </div>
-        }
+        right={<LiveClock />}
       />
 
       {/* Stat cards */}
