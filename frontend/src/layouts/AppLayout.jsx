@@ -66,21 +66,6 @@ export default function AppLayout() {
         </button>
         <NavList mobile={false} />
         <div className="flex-1" />
-        <div className="flex items-center gap-2.5 border-t border-forest-600 pt-3.5">
-          <div
-            className="flex items-center justify-center rounded-full bg-forest-600 text-[13px] font-bold text-forest-100"
-            style={{ width: 34, height: 34 }}
-          >
-            EO
-          </div>
-          <div>
-            <div className="text-[13px] font-semibold text-white">E. Okonkwo</div>
-            <div className="flex items-center gap-1.5 text-[11px] text-forest-200">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-600" />
-              Field Engineer
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Main column */}
