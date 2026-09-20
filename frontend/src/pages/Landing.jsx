@@ -196,9 +196,6 @@ export default function Landing() {
             <Link to="/login" className="rounded-xl border border-forest-400 bg-forest-400 px-7 py-4 text-base font-bold text-forest-950">Request Demo</Link>
             <Link to="/login" className="rounded-xl border border-forest-600 bg-transparent px-7 py-4 text-base font-semibold text-white">Sign In</Link>
           </div>
-          <div className="mt-8.5 font-mono text-[11px] tracking-wide text-forest-200">
-            [ PIPELINE RIGHT-OF-WAY PHOTOGRAPH — DROP IMAGE HERE ]
-          </div>
         </div>
       </div>
 
