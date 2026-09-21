@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useMemo, useCallback, u
 import { generateData, levelOf, HIGH_RISK_THRESHOLD } from './generate'
 import { getSegments, getSegment, getDashboard } from '../services/mockApi'
 import { useAuth } from '../auth/AuthContext'
+import { timeAgo } from '../lib/time'
 
 const DataContext = createContext(null)
 
@@ -9,14 +10,15 @@ const DataContext = createContext(null)
 // deterministic mock data. Segments and the dashboard summary come from the API.
 const mock = generateData()
 
-// Map the backend's thin segment shape onto what the pages render. Fields the
-// API doesn't provide fall back to '—' so the UI degrades gracefully rather
-// than showing "undefined". Risk score/level come from the segment's latest
-// risk assessment (fetched via the detail endpoint).
+// Map the backend's segment shape onto what the pages render. GET /segments now
+// returns risk_level / risk_score / status / last_assessed_at directly, so those
+// come from the list item; the detail response (when present) fills location.
+// Fields with no backend source fall back to '—' so the UI degrades gracefully.
 function mapSegment(listItem, detail) {
   const latest = detail?.risk_assessments?.[0]
-  const score = latest?.risk_score ?? 0
-  const level = latest?.risk_level || levelOf(score)
+  const score = listItem.risk_score ?? latest?.risk_score ?? 0
+  const assessed = listItem.risk_level != null || !!latest
+  const level = listItem.risk_level || latest?.risk_level || levelOf(score)
   return {
     id: listItem.segment_code, // display + routing identifier
     pk: listItem.id,           // numeric backend id (for detail/refetch)
@@ -24,18 +26,19 @@ function mapSegment(listItem, detail) {
     pipeline: detail?.pipeline?.name || listItem.pipeline_name || '—',
     score,
     level,
-    assessed: !!latest,        // false = no risk assessment yet (render neutral)
-    status: detail?.pipeline?.status || '—',
+    assessed,                  // false = no risk assessment yet (render neutral)
+    status: listItem.status || detail?.status || '—',
     location: detail?.pipeline?.location || '—',
     latitude: listItem.latitude,
     longitude: listItem.longitude,
     explanation: latest?.explanation || '',
     recommendation: latest?.recommendation || '',
+    // last_assessed_at is a plain ISO timestamp; show it as relative time.
+    last: timeAgo(listItem.last_assessed_at) || '—',
     // FUTURE: detail.incidents is a per-segment incidents array from the API.
     // Not wired into the Incidents page yet (still on mock data) — revisit
     // after the deadline to replace or augment the mock incidents feed.
     // Fields with no backend source yet.
-    last: '—',
     lengthKm: '—',
     diameter: '—',
     installDate: '—',

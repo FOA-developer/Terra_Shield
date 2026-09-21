@@ -4,12 +4,10 @@ import RiskBadge from '../components/RiskBadge'
 import DataState from '../components/DataState'
 import { useSelectedSegment } from '../hooks/useSelectedSegment'
 import { useData } from '../data/DataContext'
-import { runAssessment } from '../services/mockApi'
+import { getSegment, runAssessment } from '../services/mockApi'
 
-const BAR_COLORS = ['#dc2626', '#d97706', '#d97706', '#16a34a', '#16a34a']
-
-// Backend returns contributing_factors as short codes (e.g. "soil_moisture");
-// turn them into readable labels.
+// contributing_factors is a flat array of human-readable phrases
+// (e.g. "elevated flood risk"); just tidy the first letter for display.
 function prettify(factor) {
   return factor
     .replace(/_/g, ' ')
@@ -26,21 +24,45 @@ export default function RiskAssessment() {
   const [error, setError] = useState(null)
   const [attempt, setAttempt] = useState(0)
 
-  const segmentCode = seg?.code || seg?.id
+  const pk = seg?.pk
 
-  // Standard data-fetch-in-effect; the synchronous setState is intentional.
+  // The Segment Details page prepares the /risk-assess payload from the segment's
+  // detail record: pipeline_id + segment_code are SEPARATE SHORT codes (never the
+  // combined "PL-05-SG-12" id), plus environmental_data and incident_history.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!segmentCode) return
+    if (pk == null) return
     let alive = true
     setLoading(true)
     setError(null)
-    runAssessment({ segment_code: segmentCode }, { onSlow: setColdStart })
-      .then((r) => { if (alive) setResult(r) })
-      .catch((e) => { if (alive) setError(e) })
-      .finally(() => { if (alive) { setLoading(false); setColdStart(false) } })
+    ;(async () => {
+      try {
+        const detail = await getSegment(pk, { onSlow: setColdStart })
+        const pipelineCode = detail.pipeline?.code || ''
+        const combined = detail.segment_code || ''
+        // Combined id === `${pipeline.code}-${segment.code}`; strip the pipeline
+        // prefix to recover the short segment code the request expects.
+        const shortCode = pipelineCode && combined.startsWith(`${pipelineCode}-`)
+          ? combined.slice(pipelineCode.length + 1)
+          : combined
+        const body = {
+          pipeline_id: pipelineCode,
+          segment_code: shortCode,
+          latitude: detail.latitude,
+          longitude: detail.longitude,
+          environmental_data: detail.environmental_data || {},
+          incident_history: (detail.incidents || []).map((i) => ({ type: i.incident_type, date: i.date })),
+        }
+        const r = await runAssessment(body, { onSlow: setColdStart })
+        if (alive) setResult(r)
+      } catch (e) {
+        if (alive) setError(e)
+      } finally {
+        if (alive) { setLoading(false); setColdStart(false) }
+      }
+    })()
     return () => { alive = false }
-  }, [segmentCode, attempt])
+  }, [pk, attempt])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Segment list still loading, or segment not found.
@@ -89,25 +111,18 @@ export default function RiskAssessment() {
       </div>
 
       <div className="mt-4.5 grid items-start gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-        {/* Contributing factors */}
+        {/* Contributing factors — a flat list of what the model flagged. */}
         <div className="rounded-xl border border-gray-200 bg-white p-5">
-          <div className="text-[15px] font-bold text-forest-800">Top Contributing Factors</div>
-          <div className="mt-1 text-[13px] text-gray-500">Factors the model flagged for this segment, in order.</div>
-          <div className="mt-4.5 grid gap-4">
+          <div className="text-[15px] font-bold text-forest-800">Contributing Factors</div>
+          <div className="mt-1 text-[13px] text-gray-500">Factors the model flagged for this segment.</div>
+          <div className="mt-4 grid">
             {factors.length === 0 && (
               <div className="text-sm text-gray-500">No contributing factors returned.</div>
             )}
             {factors.map((name, i) => (
-              <div key={name + i}>
-                <div className="flex justify-between gap-3 text-sm">
-                  <div className="font-medium text-gray-700">{name}</div>
-                </div>
-                <div className="mt-1.5 h-2.5 overflow-hidden rounded-md bg-gray-100">
-                  <div
-                    className="h-full rounded-md"
-                    style={{ width: `${Math.max(20, 100 - i * 18)}%`, background: BAR_COLORS[i] || '#16a34a' }}
-                  />
-                </div>
+              <div key={name + i} className="flex items-start gap-3 border-b border-gray-100 py-3 last:border-b-0">
+                <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-md border border-green-200 bg-green-50 text-[11px] text-forest-600">✓</span>
+                <div className="text-[15px] leading-relaxed text-gray-700">{name}</div>
               </div>
             ))}
           </div>
