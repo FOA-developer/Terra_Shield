@@ -6,6 +6,7 @@ import { useSegmentFilters } from '../hooks/useSegmentFilters'
 import { useData } from '../data/DataContext'
 import DataState from '../components/DataState'
 import Select from '../components/Select'
+import AddSegmentModal from '../components/AddSegmentModal'
 
 const HEADERS = ['SEGMENT ID', 'PIPELINE', 'RISK', 'SCORE', 'STATUS', 'LAST INSPECTED']
 
@@ -14,6 +15,16 @@ export default function Segments() {
   const { threshold, loading, coldStart, error, reload, segments } = useData()
   const { q, setQ, pipe, setPipe, level, setLevel, pipeOptions, levelOptions, filtered, total } = useSegmentFilters()
   const [page, setPage] = useState(1)
+  const [showAdd, setShowAdd] = useState(false)
+
+  // A new segment was created + assessed: refresh the list so it appears, then
+  // jump to its detail page (segment_id is the combined display id / route id),
+  // which shows the risk score that just came back — no second assessment run.
+  const handleCreated = (result) => {
+    setShowAdd(false)
+    reload()
+    navigate(`/segments/${result.segment_id}`)
+  }
 
   const per = 12
   const pages = Math.max(1, Math.ceil(filtered.length / per))
@@ -35,10 +46,23 @@ export default function Segments() {
 
   return (
     <div className="p-4 pb-7 lg:px-7.5 lg:py-7">
-      <div className="text-2xl font-bold tracking-tight text-forest-800 lg:text-[31px]">Segments</div>
-      <div className="mt-1.5 text-[15px] text-gray-500">
-        {filtered.length} of {total} segments · high-risk threshold {threshold}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-2xl font-bold tracking-tight text-forest-800 lg:text-[31px]">Segments</div>
+          <div className="mt-1.5 text-[15px] text-gray-500">
+            {filtered.length} of {total} segments · high-risk threshold {threshold}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowAdd(true)}
+          className="h-11 flex-none rounded-lg border border-forest-600 bg-forest-600 px-4 text-sm font-semibold text-white"
+        >
+          + Add Segment
+        </button>
       </div>
+
+      {showAdd && <AddSegmentModal onClose={() => setShowAdd(false)} onCreated={handleCreated} />}
 
       {/* Filters */}
       <div className="mt-4 grid gap-2.5 lg:grid-cols-[1.4fr_1fr_1fr]">
