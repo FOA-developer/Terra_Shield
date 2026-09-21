@@ -111,40 +111,6 @@ export function levelOf(score, threshold = HIGH_RISK_THRESHOLD) {
   return score >= threshold ? 'High' : score >= 50 ? 'Medium' : 'Low'
 }
 
-export function factorsFor(seg) {
-  const base = [
-    ['Previous vandalism incidents', 35],
-    ['Proximity to access road', 25],
-    ['Low elevation (flood prone)', 22],
-    ['Historical spill activity', 12],
-    ['Coating condition', 6],
-  ]
-  const k = seg.fseed
-  return base
-    .map(([name, weight], i) => ({ name, pct: Math.max(3, Math.round(weight * (0.75 + k * 0.5) - i)) }))
-    .sort((a, b) => b.pct - a.pct)
-}
-
-export function explanationFor(seg, level) {
-  if (level === 'High') {
-    return `This segment scores ${seg.score}/100 because of a combination of past vandalism incidents along this run, close proximity to an access road, and low elevation that increases flood exposure. Historical spill activity in the surrounding area raises the likelihood that interference here goes unnoticed between inspections.`
-  }
-  if (level === 'Medium') {
-    return `This segment scores ${seg.score}/100. Coating condition and elevation are within tolerance, but the interval since the last inspection and moderate third-party activity nearby keep it above the low-risk band. Routine monitoring is sufficient for now.`
-  }
-  return `This segment scores ${seg.score}/100. Coating condition, depth of cover and surrounding activity are all favourable, and no incidents have been recorded on this run in the current reporting period.`
-}
-
-export function actionsFor(level) {
-  if (level === 'High') {
-    return ['Schedule a physical inspection within 7 days.', 'Increase surveillance and patrol frequency on this run.', 'Monitor for abnormal pressure and flow readings.']
-  }
-  if (level === 'Medium') {
-    return ['Add to the next scheduled inspection cycle.', 'Review CCTV coverage along the right-of-way.', 'Re-score after the next sensor upload.']
-  }
-  return ['No action required — keep on the standard inspection cycle.', 'Re-score automatically after the next data refresh.']
-}
-
 export function trendFor(seg) {
   const drift = seg.fseed * 18 - 9
   const vals = [0, 1, 2, 3, 4, 5].map((i) => {
