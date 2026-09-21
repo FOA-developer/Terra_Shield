@@ -52,25 +52,26 @@ function FocusController({ focus, segmentsById, markerRefs }) {
   return null
 }
 
-// Leaflet mis-measures its container if it initializes while hidden
-// (display:none behind the mobile "Map" tab), which lays tiles out wrong.
-// A ResizeObserver on the map container re-measures on any size change —
-// including 0 → real dimensions when the tab becomes visible. The tab-switch
-// timeout is a belt-and-suspenders fallback for browsers that settle late.
-function ResizeFix({ trigger }) {
+// Keep Leaflet's internal size in sync with its container across every layout,
+// with no dependency on the mobile tab toggle:
+//  - ResizeObserver catches desktop (container settles/grows after first paint),
+//    mobile (0 → real size when the Map tab is revealed), and window resizes.
+//  - A mount-time invalidateSize() makes the very first render correct before
+//    any resize fires.
+// Both are cleaned up on unmount.
+function ResizeFix() {
   const map = useMap()
 
   useEffect(() => {
     const container = map.getContainer()
     const ro = new ResizeObserver(() => map.invalidateSize())
     ro.observe(container)
-    return () => ro.disconnect()
+    const t = setTimeout(() => map.invalidateSize(), 100)
+    return () => {
+      clearTimeout(t)
+      ro.disconnect()
+    }
   }, [map])
-
-  useEffect(() => {
-    const t = setTimeout(() => map.invalidateSize(), 150)
-    return () => clearTimeout(t)
-  }, [trigger, map])
 
   return null
 }
@@ -242,7 +243,7 @@ export default function PipelineMap() {
 
               <FitBounds points={points} />
               <FocusController focus={focus} segmentsById={segmentsById} markerRefs={markerRefs} />
-              <ResizeFix trigger={mapTab} />
+              <ResizeFix />
             </MapContainer>
           )}
         </div>
