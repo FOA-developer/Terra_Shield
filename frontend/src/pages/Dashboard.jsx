@@ -4,8 +4,7 @@ import { useData } from '../data/DataContext'
 import RiskBadge, { RiskDot } from '../components/RiskBadge'
 import PageHeader from '../components/PageHeader'
 import DataState from '../components/DataState'
-
-const AGOS = ['10 min ago', '25 min ago', '1 hr ago', '2 hrs ago', '4 hrs ago']
+import { timeAgo } from '../lib/time'
 
 // Format a Date in West Africa Time (UTC+1) as e.g. "Sat, 12 Sep 2026 · 07:42 WAT".
 // Formatting via the Africa/Lagos timezone is robust regardless of the viewer's
@@ -43,42 +42,38 @@ function LiveClock() {
 }
 
 export default function Dashboard() {
-  const { dashboard, alerts, bySegId, pipes, loading, coldStart, error, reload } = useData()
+  const { dashboard, segments, pipes, loading, coldStart, error, reload } = useData()
   const navigate = useNavigate()
 
-  const { total, highCount, medCount, lowCount, hp, mp, statCards, topRisk, recentAlerts } = useMemo(() => {
-    const breakdown = Object.fromEntries((dashboard?.risk_level_breakdown || []).map((b) => [b.risk_level, b.count]))
-    const highCount = breakdown.High || 0
-    const medCount = breakdown.Medium || 0
-    const lowCount = breakdown.Low || 0
-    const total = dashboard?.segment_count ?? (highCount + medCount + lowCount)
+  const { total, highCount, medCount, lowCount, hp, mp, statCards, topRisk, recentAlerts, trend } = useMemo(() => {
+    const highCount = dashboard?.high_risk_count || 0
+    const medCount = dashboard?.medium_risk_count || 0
+    const lowCount = dashboard?.low_risk_count || 0
+    const total = dashboard?.total_segments ?? (highCount + medCount + lowCount)
+    const totalPipelines = dashboard?.total_pipelines ?? pipes.length
     const pctOf = (n) => (total ? ((n / total) * 100).toFixed(1) : '0.0') + '% of total'
     const hp = total ? (highCount / total) * 100 : 0
     const mp = total ? (medCount / total) * 100 : 0
 
     const statCards = [
-      { label: 'Total Segments', value: String(total), sub: `Across ${dashboard?.pipeline_count ?? pipes.length} pipelines`, icon: '≡', color: '#1f5138', bg: '#ecfdf5' },
+      { label: 'Total Segments', value: String(total), sub: `Across ${totalPipelines} pipelines`, icon: '≡', color: '#1f5138', bg: '#ecfdf5' },
       { label: 'High Risk', value: String(highCount), sub: pctOf(highCount), icon: '△', color: '#dc2626', bg: '#fee2e2' },
       { label: 'Medium Risk', value: String(medCount), sub: pctOf(medCount), icon: '◐', color: '#d97706', bg: '#fef3c7' },
       { label: 'Low Risk', value: String(lowCount), sub: pctOf(lowCount), icon: '✓', color: '#16a34a', bg: '#dcfce7' },
     ]
 
-    // Top high-risk segments from the dashboard's latest assessments; pull the
-    // pipeline name from the segment list where available.
-    const topRisk = (dashboard?.latest_assessments || [])
+    // Top high-risk segments come from the segment list (which now carries
+    // risk_level / risk_score), sorted by score.
+    const topRisk = segments
+      .filter((s) => s.level === 'High')
       .slice()
-      .sort((a, b) => b.risk_score - a.risk_score)
+      .sort((a, b) => b.score - a.score)
       .slice(0, 5)
-      .map((a) => ({
-        id: a.segment_id,
-        score: a.risk_score,
-        level: a.risk_level,
-        pipeline: bySegId.get(a.segment_id)?.pipeline || '—',
-      }))
 
-    const recentAlerts = alerts.slice(0, 4)
-    return { total, highCount, medCount, lowCount, hp, mp, statCards, topRisk, recentAlerts }
-  }, [dashboard, alerts, bySegId, pipes])
+    const recentAlerts = dashboard?.recent_alerts || []
+    const trend = dashboard?.risk_trend || []
+    return { total, highCount, medCount, lowCount, hp, mp, statCards, topRisk, recentAlerts, trend }
+  }, [dashboard, segments, pipes])
 
   if ((loading && !dashboard) || error) {
     return (
@@ -94,6 +89,13 @@ export default function Dashboard() {
     { label: 'Medium Risk', level: 'Medium', value: `${medCount} (${mp.toFixed(1)}%)` },
     { label: 'Low Risk', level: 'Low', value: `${lowCount} (${(100 - hp - mp).toFixed(1)}%)` },
   ]
+
+  // risk_trend: one point per returned day (missing days are simply absent —
+  // never plotted as 0). x is spread by index across the returned entries.
+  const tn = trend.length
+  const trendX = (i) => (tn === 1 ? 310 : 40 + i * (540 / (tn - 1)))
+  const trendY = (v) => 190 - (Math.max(0, Math.min(100, v)) / 100) * 170
+  const trendPts = trend.map((d, i) => `${trendX(i)},${trendY(d.average_risk_score)}`).join(' ')
 
   return (
     <div className="p-4 pb-7 lg:px-7.5 lg:py-7">
@@ -154,19 +156,22 @@ export default function Dashboard() {
             <Link to="/alerts" className="text-[13px] font-semibold">View all</Link>
           </div>
           <div className="mt-1.5 grid">
+            {recentAlerts.length === 0 && (
+              <div className="py-6 text-center text-sm text-gray-500">No recent alerts.</div>
+            )}
             {recentAlerts.map((a, i) => (
               <button
                 key={i}
                 type="button"
-                onClick={() => navigate(`/segments/${a.segRef}`)}
+                onClick={() => navigate(`/segments/${a.segment_id}`)}
                 className="flex cursor-pointer items-start gap-3 border-b border-gray-100 py-3.5 text-left last:border-b-0"
               >
-                <RiskDot level={a.sev} />
+                <RiskDot level={a.risk_level} />
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-gray-900">{a.message}</div>
-                  <div className="mt-1 font-mono text-xs text-gray-500">Segment {a.seg}</div>
+                  <div className="text-sm font-semibold text-gray-900">{a.risk_level} risk assessment</div>
+                  <div className="mt-1 font-mono text-xs text-gray-500">Segment {a.segment_id}</div>
                 </div>
-                <div className="whitespace-nowrap text-xs text-gray-400">{AGOS[i % AGOS.length]}</div>
+                <div className="whitespace-nowrap text-xs text-gray-400">{timeAgo(a.created_at)}</div>
               </button>
             ))}
           </div>
@@ -199,6 +204,41 @@ export default function Dashboard() {
             View all high-risk segments
           </button>
         </div>
+      </div>
+
+      {/* Risk trend — average risk score per day that has assessment data */}
+      <div className="mt-3.5 rounded-xl border border-gray-200 bg-white p-4.5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2.5">
+          <div className="text-[15px] font-bold text-forest-800">Risk Trend</div>
+          <div className="font-mono text-xs text-gray-500">AVG RISK SCORE · LAST 14 DAYS</div>
+        </div>
+        {tn === 0 ? (
+          <div className="py-10 text-center text-sm text-gray-500">No assessment data yet.</div>
+        ) : (
+          <svg viewBox="0 0 600 220" className="mt-3.5 block h-auto w-full">
+            <g stroke="#f3f4f6" strokeWidth="1">
+              <line x1="40" y1="20" x2="590" y2="20" />
+              <line x1="40" y1="62.5" x2="590" y2="62.5" />
+              <line x1="40" y1="105" x2="590" y2="105" />
+              <line x1="40" y1="147.5" x2="590" y2="147.5" />
+              <line x1="40" y1="190" x2="590" y2="190" />
+            </g>
+            <text x="8" y="24" fill="#9ca3af" fontFamily="IBM Plex Mono, monospace" fontSize="11">100</text>
+            <text x="14" y="109" fill="#9ca3af" fontFamily="IBM Plex Mono, monospace" fontSize="11">50</text>
+            <text x="20" y="194" fill="#9ca3af" fontFamily="IBM Plex Mono, monospace" fontSize="11">0</text>
+            {tn > 1 && <polyline points={trendPts} fill="none" stroke="#1f5138" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
+            {trend.map((d, i) => (
+              <circle key={d.date} cx={trendX(i)} cy={trendY(d.average_risk_score)} r="5" fill="#1f5138">
+                <title>{`${d.date}: ${d.average_risk_score}`}</title>
+              </circle>
+            ))}
+            {trend.map((d, i) => (
+              (tn <= 8 || i === 0 || i === tn - 1) && (
+                <text key={d.date} x={trendX(i)} y="212" fill="#6b7280" fontFamily="IBM Plex Mono, monospace" fontSize="11" textAnchor="middle">{d.date.slice(5)}</text>
+              )
+            ))}
+          </svg>
+        )}
       </div>
     </div>
   )
