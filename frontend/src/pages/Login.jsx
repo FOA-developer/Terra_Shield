@@ -52,7 +52,7 @@ export default function Login() {
           </div>
         </div>
         <div className="relative font-mono text-[11px] tracking-wide text-forest-200">
-          [ MOODY PIPELINE INFRASTRUCTURE PHOTO — DROP IMAGE HERE ]
+          PIPELINE INFRASTRUCTURE
         </div>
       </div>
 
